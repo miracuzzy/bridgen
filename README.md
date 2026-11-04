@@ -99,10 +99,11 @@ Market makers fill the intent and settlement goes through the NEAR Intents verif
 | Variable | Required | Notes |
 | --- | --- | --- |
 | `ONECLICK_API_KEY` | No | JWT from partners.near-intents.org. Server-side only. Without it 1Click adds a higher fee. |
+| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | No | Public client id from cloud.reown.com. Lets mobile browsers (no injected wallet) connect an EVM wallet through WalletConnect. Without it, mobile shows the QR and manual send. |
 
 ## Known limitations
 
-- Wallet sending for EVM chains (injected wallet) and NEAR tokens (NEAR Connect). Other chains show the deposit address to send manually.
+- Wallet sending for EVM chains (injected wallet on desktop, WalletConnect on mobile when a project id is set) and NEAR tokens (NEAR Connect). Other chains show the deposit address to send manually.
 - Fees shown are the ones 1Click returns (`withdrawFee`, `refundFee`). Total cost is value in minus value out in USD.
 - Activity history is stored in this browser only.
 - Address format checks catch typos, not wrong-but-valid addresses.

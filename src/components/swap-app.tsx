@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { saveActivity, updateActivity } from "@/lib/activity";
 import { chainName, DEFAULT_FROM, DEFAULT_TO, EVM_CHAIN_IDS, EXPLORERS } from "@/lib/chains";
-import { connectEvm, sendDeposit } from "@/lib/evm";
+import { connectEvm, currentEvmMode, disconnectEvm, NO_EVM_WALLET_MSG, sendDeposit, type EvmConnectMode } from "@/lib/evm";
 import { nearTokenContract, WRAP_NEAR } from "@/lib/near-deposit";
 import { connectNear, currentNearAccount, disconnectNear, sendNearDeposit } from "@/lib/near-wallet";
 import { evaluateGuard, type GuardResult, type GuardRules } from "@/lib/guard";
@@ -61,7 +61,8 @@ export function SwapApp() {
   const [nearAccount, setNearAccount] = useState<string | null>(null);
   const [wrapNative, setWrapNative] = useState(true);
 
-  useEffect(() => { currentNearAccount().then(setNearAccount); }, []);
+  const [evmMode, setEvmMode] = useState<EvmConnectMode>("injected");
+  useEffect(() => { currentNearAccount().then(setNearAccount); setEvmMode(currentEvmMode()); }, []);
 
   useEffect(() => {
     fetch("/api/tokens")
@@ -158,7 +159,8 @@ export function SwapApp() {
 
   async function connect() {
     setErr(null);
-    try { const a = await connectEvm(); setWallet(a); if (!refundTo) setRefundTo(a); } catch (e) { setErr((e as Error).message); }
+    if (evmMode === "none") { setErr(NO_EVM_WALLET_MSG); return; }
+    try { const a = await connectEvm(); setWallet(a); if (!refundTo) setRefundTo(a); } catch (e) { setErr((e as Error).message || "Could not connect a wallet. You can still scan the QR or copy the deposit address."); }
   }
 
   async function payWithWallet() {
@@ -200,11 +202,11 @@ export function SwapApp() {
       <Card className="space-y-4">
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-xl font-semibold tracking-tight">Swap</h1>
-          {wallet ? walletChip(`${wallet.slice(0, 6)}...${wallet.slice(-4)}`)
+          {wallet ? walletChip(`${wallet.slice(0, 6)}...${wallet.slice(-4)}`, () => { disconnectEvm(); setWallet(null); })
             : nearContract ? (nearAccount
               ? walletChip(nearAccount.length > 22 ? `${nearAccount.slice(0, 8)}...${nearAccount.slice(-6)}` : nearAccount, () => { disconnectNear(); setNearAccount(null); })
               : <Button variant="outline" className="min-h-9 px-3 py-1.5 text-xs" onClick={connectNearWallet}>Connect NEAR wallet</Button>)
-            : evmChainId ? <Button variant="outline" className="min-h-9 px-3 py-1.5 text-xs" onClick={connect}>Connect wallet</Button>
+            : evmChainId ? (evmMode === "none" ? <span className="max-w-[12rem] text-right text-xs text-white/45">No wallet in this browser. Send with QR or address</span> : <Button variant="outline" className="min-h-9 px-3 py-1.5 text-xs" onClick={connect}>Connect wallet</Button>)
             : <span className="text-right text-xs text-white/40">Manual send on {chainName(fromChain)}</span>}
         </div>
 
@@ -301,7 +303,7 @@ export function SwapApp() {
             <div className="grid gap-2 sm:grid-cols-2">
               <CopyButton value={q.depositAddress} />
               {evmChainId && wallet && !txHash && <Button className="min-h-11" onClick={payWithWallet} disabled={busy}>{busy ? <><Spinner /> Waiting for wallet</> : "Send with wallet"}</Button>}
-              {evmChainId && !wallet && !txHash && <Button className="min-h-11" variant="outline" onClick={connect}>Connect wallet to send</Button>}
+              {evmChainId && !wallet && !txHash && evmMode !== "none" && <Button className="min-h-11" variant="outline" onClick={connect}>Connect wallet to send</Button>}
               {nearContract && nearAccount && !txHash && <Button className="min-h-11" onClick={payWithNear} disabled={busy}>{busy ? <><Spinner /> Waiting for wallet</> : "Send with NEAR wallet"}</Button>}
               {nearContract && !nearAccount && !txHash && <Button className="min-h-11" variant="outline" onClick={connectNearWallet}>Connect NEAR wallet to send</Button>}
             </div>
@@ -309,6 +311,7 @@ export function SwapApp() {
               <label className="flex min-h-11 items-center gap-3 text-sm text-white/60"><input type="checkbox" className="h-4 w-4 accent-orange-500" checked={wrapNative} onChange={(e) => setWrapNative(e.target.checked)} /> Pay with native NEAR (wrapped to wNEAR in the same transaction)</label>
             )}
             {nearContract && nearAccount && !txHash && <p className="text-xs leading-relaxed text-white/40">Your wallet shows one transaction to the token contract. If the deposit address is not registered on the token yet, it includes a small NEAR storage deposit, as the token standard requires. The transfer attaches 1 yoctoNEAR.</p>}
+            {evmChainId && !wallet && !txHash && evmMode === "none" && <p className="text-xs leading-relaxed text-white/45">This browser has no built-in wallet. Scan the QR with your wallet app, or copy the address and send exactly the amount above on {chainName(fromTok.blockchain)}. Or open this page in your wallet app&apos;s browser.</p>}
             {!evmChainId && !nearContract && <p className="text-xs text-white/45">Send from any wallet on {chainName(fromTok.blockchain)}. Scan the QR or copy the address.</p>}
             {txHash && <Row k="Your deposit tx" v={(() => { const u = txUrl(fromTok.blockchain, txHash); const t = `${txHash.slice(0, 10)}...${txHash.slice(-6)}`; return u ? <a className="text-orange-400 underline" href={u} target="_blank" rel="noreferrer">{t}</a> : t; })()} />}
             <div className="border-t border-white/5 pt-4">
