@@ -9,7 +9,7 @@ export function Button({ variant = "primary", className, ...p }: ButtonHTMLAttri
     <button
       {...p}
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40",
+        "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40",
         variant === "primary" && "bg-orange-500 text-black hover:bg-orange-400",
         variant === "outline" && "border border-white/15 text-white hover:border-orange-500/60 hover:bg-white/5",
         variant === "ghost" && "text-white/70 hover:text-white",
@@ -20,7 +20,7 @@ export function Button({ variant = "primary", className, ...p }: ButtonHTMLAttri
 }
 
 export function Card({ className, children }: { className?: string; children: ReactNode }) {
-  return <div className={cn("rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:p-6", className)}>{children}</div>;
+  return <div className={cn("rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4 shadow-[0_1px_0_0_rgba(255,255,255,0.04)_inset] sm:p-6", className)}>{children}</div>;
 }
 
 export function Label({ children }: { children: ReactNode }) {
@@ -28,7 +28,7 @@ export function Label({ children }: { children: ReactNode }) {
 }
 
 export const inputCls =
-  "w-full rounded-xl border border-white/10 bg-black/40 px-3.5 py-3 text-sm text-white placeholder:text-white/30 outline-none transition focus:border-orange-500/70";
+  "h-12 w-full rounded-xl border border-white/10 bg-black/40 px-3.5 text-base text-white sm:text-sm placeholder:text-white/30 outline-none transition focus:border-orange-500/70";
 
 export function Badge({ tone, children }: { tone: "ok" | "bad" | "warn" | "muted" | "brand"; children: ReactNode }) {
   const t = {

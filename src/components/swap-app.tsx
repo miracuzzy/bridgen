@@ -14,7 +14,10 @@ import { GuardList } from "./guard-list";
 import { FundsTracker, StatusTracker } from "./status-tracker";
 import { fundsView } from "@/lib/funds";
 import { TokenSelect } from "./token-select";
-import { Alert, Button, Card, inputCls, Label, Row, Spinner } from "./ui";
+import { Alert, Badge, Button, Card, cn, inputCls, Label, Row, Spinner } from "./ui";
+import { CopyButton, DepositQR } from "./deposit-qr";
+import { txUrl } from "@/lib/explorer";
+import { localTime } from "@/lib/time";
 
 type Phase = "edit" | "review" | "live";
 
@@ -172,127 +175,189 @@ export function SwapApp() {
     } finally { setBusy(false); }
   }
 
-  if (loadErr) return <Alert>{loadErr}. Refresh to try again.</Alert>;
-  if (!tokens) return <Card className="flex items-center gap-3 text-white/60"><Spinner /> Loading supported assets from NEAR Intents</Card>;
+  const flip = () => {
+    setFromChain(toChain); setToChain(fromChain); setFrom(to); setTo(from); reset();
+  };
+
+  if (loadErr) return <div className="mx-auto max-w-lg"><Alert>{loadErr}. Refresh the page to try again.</Alert></div>;
+  if (!tokens) return (
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+      <Card className="space-y-4"><div className="flex items-center gap-3 text-sm text-white/60"><Spinner /> Loading supported assets from NEAR Intents</div>{[0, 1, 2].map((i) => <div key={i} className="h-20 animate-pulse rounded-2xl bg-white/[0.04]" />)}</Card>
+      <Card className="hidden h-64 animate-pulse lg:block"><span className="sr-only">Loading</span></Card>
+    </div>
+  );
 
   const q = quote?.quote;
   const live = phase === "live";
   const canGoLive = !!recipient.trim() && !!refundTo.trim();
   const locked = phase !== "edit";
+  const outShown = q && toTok ? (q.amountOutFormatted ?? fromBaseUnits(q.amountOut, toTok.decimals)) : null;
+  const walletChip = (txt: string, onClick?: () => void) => <button type="button" onClick={onClick} title={onClick ? "Disconnect" : undefined} className="inline-flex min-h-9 items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 text-xs font-medium text-white/80 hover:border-orange-500/50"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />{txt}</button>;
+  const sideCls = "rounded-2xl border border-white/[0.07] bg-black/30 p-4 space-y-3";
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
-      <Card className="space-y-5">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold">Swap</h1>
-          {wallet ? <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-white/70">{wallet.slice(0, 6)}...{wallet.slice(-4)}</span>
+    <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+      <Card className="space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-xl font-semibold tracking-tight">Swap</h1>
+          {wallet ? walletChip(`${wallet.slice(0, 6)}...${wallet.slice(-4)}`)
             : nearContract ? (nearAccount
-              ? <button className="rounded-full border border-white/10 px-3 py-1 text-xs text-white/70 hover:border-orange-500/60" onClick={() => { disconnectNear(); setNearAccount(null); }} title="Disconnect">{nearAccount.length > 24 ? `${nearAccount.slice(0, 8)}...${nearAccount.slice(-6)}` : nearAccount}</button>
-              : <Button variant="outline" className="px-3 py-1.5 text-xs" onClick={connectNearWallet}>Connect NEAR wallet</Button>)
-            : evmChainId ? <Button variant="outline" className="px-3 py-1.5 text-xs" onClick={connect}>Connect wallet</Button>
-            : <span className="text-xs text-white/40">Wallet send not supported for {chainName(fromChain)} yet</span>}
+              ? walletChip(nearAccount.length > 22 ? `${nearAccount.slice(0, 8)}...${nearAccount.slice(-6)}` : nearAccount, () => { disconnectNear(); setNearAccount(null); })
+              : <Button variant="outline" className="min-h-9 px-3 py-1.5 text-xs" onClick={connectNearWallet}>Connect NEAR wallet</Button>)
+            : evmChainId ? <Button variant="outline" className="min-h-9 px-3 py-1.5 text-xs" onClick={connect}>Connect wallet</Button>
+            : <span className="text-right text-xs text-white/40">Manual send on {chainName(fromChain)}</span>}
         </div>
-        <fieldset disabled={locked} className="space-y-5 disabled:opacity-60">
-          <TokenSelect label="You send" tokens={tokens} chain={fromChain} asset={from} onChain={(c) => pickChain("from", c)} onAsset={(a) => { setFrom(a); reset(); }} />
+
+        <div className={sideCls}>
+          <div className="flex items-center justify-between text-xs font-medium uppercase tracking-wider text-white/45"><span>You send</span>{fromTok?.price && amount && Number(amount) > 0 ? <span className="normal-case tracking-normal">about ${(Number(amount) * fromTok.price).toFixed(2)}</span> : null}</div>
+          <input aria-label="Amount" disabled={locked} className="w-full bg-transparent text-3xl font-semibold tracking-tight outline-none placeholder:text-white/20 disabled:opacity-60" inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value.replace(",", "."))} />
+          <TokenSelect disabled={locked} label="You send" tokens={tokens} chain={fromChain} asset={from} onChain={(c) => pickChain("from", c)} onAsset={(a) => { setFrom(a); reset(); }} />
+        </div>
+
+        <div className="relative -my-2 flex justify-center">
+          <button type="button" aria-label="Switch direction" disabled={locked} onClick={flip} className="z-10 grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-[#121214] text-white/70 transition hover:border-orange-500/60 hover:text-orange-300 disabled:opacity-40">
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden><path d="M5 2v11m0 0-3-3m3 3 3-3M11 14V3m0 0-3 3m3-3 3 3" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </button>
+        </div>
+
+        <div className={sideCls}>
+          <div className="text-xs font-medium uppercase tracking-wider text-white/45">You receive</div>
+          <div className={cn("text-3xl font-semibold tracking-tight", !outShown && "text-white/20")}>{outShown ?? "0.00"}</div>
+          <TokenSelect disabled={locked} label="You receive" tokens={tokens} chain={toChain} asset={to} onChain={(c) => pickChain("to", c)} onAsset={(a) => { setTo(a); reset(); }} />
+        </div>
+
+        <fieldset disabled={locked} className="space-y-4 disabled:opacity-60">
           <div>
-            <Label>Amount{fromTok ? ` (${fromTok.symbol})` : ""}</Label>
-            <input className={inputCls} inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} />
-            {fromTok?.price && amount && Number(amount) > 0 && <div className="mt-1 text-xs text-white/40">About ${(Number(amount) * fromTok.price).toFixed(2)} at the 1Click listed price</div>}
-          </div>
-          <TokenSelect label="You receive" tokens={tokens} chain={toChain} asset={to} onChain={(c) => pickChain("to", c)} onAsset={(a) => { setTo(a); reset(); }} />
-          <div>
-            <Label>Recipient on {chainName(toChain)} <span className="text-white/40">(optional for a preview)</span></Label>
-            <input className={inputCls} placeholder={toChain === "near" ? "name.near" : "Address"} value={recipient} onChange={(e) => setRecipient(e.target.value)} />
+            <Label>Recipient on {chainName(toChain)}</Label>
+            <input className={inputCls} placeholder={toChain === "near" ? "name.near" : "Recipient address"} value={recipient} onChange={(e) => setRecipient(e.target.value)} autoComplete="off" spellCheck={false} />
           </div>
           <div>
-            <Label>Refund address on {chainName(fromChain)} <span className="text-white/40">(optional for a preview)</span></Label>
-            <input className={inputCls} placeholder="Where funds go back if the swap cannot complete" value={refundTo} onChange={(e) => setRefundTo(e.target.value)} />
+            <Label>Refund address on {chainName(fromChain)}</Label>
+            <input className={inputCls} placeholder="Where funds go back if the swap cannot complete" value={refundTo} onChange={(e) => setRefundTo(e.target.value)} autoComplete="off" spellCheck={false} />
           </div>
-          <div className="rounded-xl border border-orange-500/20 bg-orange-500/[0.04] p-4">
-            <div className="mb-3 text-sm font-semibold text-orange-300">Swap Guard conditions</div>
-            <div className="grid grid-cols-2 gap-3">
+          <p className="-mt-1 text-xs text-white/40">Both are optional for a preview and required for a deposit address.</p>
+          <details open className="group rounded-2xl border border-orange-500/20 bg-orange-500/[0.04]">
+            <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-sm font-semibold text-orange-300">
+              <span>Swap Guard conditions</span>
+              <svg width="12" height="12" viewBox="0 0 12 12" className="text-orange-300/70 transition group-open:rotate-180" aria-hidden><path d="M2.5 4.5 6 8l3.5-3.5" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" /></svg>
+            </summary>
+            <div className="grid grid-cols-2 gap-3 px-4 pb-4">
               <div><Label>Min received{toTok ? ` (${toTok.symbol})` : ""}</Label><input className={inputCls} inputMode="decimal" placeholder="Optional" value={minReceive} onChange={(e) => setMinReceive(e.target.value)} /></div>
               <div><Label>Max cost (USD)</Label><input className={inputCls} inputMode="decimal" placeholder="Optional" value={maxCost} onChange={(e) => setMaxCost(e.target.value)} /></div>
-              <div><Label>Quote valid for (min)</Label><input className={inputCls} inputMode="numeric" value={minValidity} onChange={(e) => setMinValidity(e.target.value)} /></div>
+              <div><Label>Valid for (min)</Label><input className={inputCls} inputMode="numeric" value={minValidity} onChange={(e) => setMinValidity(e.target.value)} /></div>
               <div><Label>Max time (sec)</Label><input className={inputCls} inputMode="numeric" placeholder="Optional" value={maxTime} onChange={(e) => setMaxTime(e.target.value)} /></div>
               <div className="col-span-2"><Label>Slippage tolerance (%)</Label><input className={inputCls} inputMode="decimal" value={slippage} onChange={(e) => setSlippage(e.target.value)} /></div>
             </div>
-          </div>
+          </details>
         </fieldset>
+
         {err && <Alert>{err}</Alert>}
         {phase === "edit" && (
-          <div className="grid grid-cols-2 gap-3">
-            <Button variant="outline" onClick={preview} disabled={busy || !amount}>{busy ? <><Spinner /> Getting quote</> : "Preview quote"}</Button>
-            <Button onClick={confirm} disabled={busy || !amount || !canGoLive}>Get deposit address</Button>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Button variant="outline" className="min-h-12" onClick={preview} disabled={busy || !amount}>{busy ? <><Spinner /> Getting quote</> : "Preview quote"}</Button>
+            <Button className="min-h-12" onClick={confirm} disabled={busy || !amount || !canGoLive}>Get deposit address</Button>
           </div>
-        )}
-        {phase !== "live" && (
-          <p className="text-xs text-white/40">Preview quote needs no wallet or funds. It returns a real quote and full Swap Guard check, with no deposit address. Get deposit address needs a recipient and refund address.</p>
         )}
         {phase === "review" && (
-          <div className="grid grid-cols-2 gap-3">
-            <Button variant="outline" onClick={reset} disabled={busy}>Edit</Button>
-            <Button onClick={confirm} disabled={busy || !!guard?.blocked || !canGoLive}>{busy ? <><Spinner /> Re-checking</> : "Get deposit address"}</Button>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Button variant="outline" className="min-h-12" onClick={reset} disabled={busy}>Edit</Button>
+            <Button className="min-h-12" onClick={confirm} disabled={busy || !!guard?.blocked || !canGoLive}>{busy ? <><Spinner /> Re-checking</> : "Get deposit address"}</Button>
           </div>
         )}
-        {live && <Button variant="outline" className="w-full" onClick={reset}>New swap</Button>}
+        {phase !== "live" && <p className="text-xs leading-relaxed text-white/40">Preview quote needs no wallet or funds and never returns a deposit address. Get deposit address fetches a fresh live quote and runs Swap Guard again first.</p>}
+        {live && <Button variant="outline" className="min-h-12 w-full" onClick={reset}>Start a new swap</Button>}
       </Card>
 
       <div className="space-y-6">
-        {!quote && <Card className="text-sm text-white/50">Fill in the swap and your conditions. Bridgen will get a real quote from NEAR Intents and check it before anything is sent.</Card>}
+        {!quote && (
+          <Card className="space-y-4">
+            <h2 className="font-semibold">Before you send</h2>
+            <ol className="space-y-3 text-sm text-white/60">
+              {["Pick what you send and receive, and an amount.", "Set your Swap Guard conditions.", "Preview a real quote. Every condition is checked.", "Get a one-time deposit address and send. Track it live."].map((t, i) => (
+                <li key={t} className="flex gap-3"><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-orange-500/40 text-xs font-semibold text-orange-300">{i + 1}</span><span className="pt-0.5">{t}</span></li>
+              ))}
+            </ol>
+          </Card>
+        )}
+
+        {live && q?.depositAddress && fromTok && toTok && (
+          <Card className="space-y-5 border-orange-500/30 bg-orange-500/[0.03]">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold">Send your deposit</h2>
+              {q.deadline && <span className="text-right text-xs text-white/45">Quote valid until {localTime(q.deadline)}</span>}
+            </div>
+            <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
+              <DepositQR value={q.depositAddress} />
+              <div className="w-full min-w-0 space-y-3">
+                <div>
+                  <div className="text-xs uppercase tracking-wider text-white/45">Send exactly</div>
+                  <div className="text-2xl font-semibold">{q.amountInFormatted} {fromTok.symbol}</div>
+                  <div className="text-sm text-white/50">on {chainName(fromTok.blockchain)}</div>
+                </div>
+                <div className="break-all rounded-xl border border-white/10 bg-black/40 p-3 font-mono text-xs leading-relaxed sm:text-sm">{q.depositAddress}</div>
+              </div>
+            </div>
+            {q.depositMemo && <Alert tone="warn">Memo required: <b>{q.depositMemo}</b></Alert>}
+            <div className="grid gap-2 sm:grid-cols-2">
+              <CopyButton value={q.depositAddress} />
+              {evmChainId && wallet && !txHash && <Button className="min-h-11" onClick={payWithWallet} disabled={busy}>{busy ? <><Spinner /> Waiting for wallet</> : "Send with wallet"}</Button>}
+              {evmChainId && !wallet && !txHash && <Button className="min-h-11" variant="outline" onClick={connect}>Connect wallet to send</Button>}
+              {nearContract && nearAccount && !txHash && <Button className="min-h-11" onClick={payWithNear} disabled={busy}>{busy ? <><Spinner /> Waiting for wallet</> : "Send with NEAR wallet"}</Button>}
+              {nearContract && !nearAccount && !txHash && <Button className="min-h-11" variant="outline" onClick={connectNearWallet}>Connect NEAR wallet to send</Button>}
+            </div>
+            {nearContract === WRAP_NEAR && nearAccount && !txHash && (
+              <label className="flex min-h-11 items-center gap-3 text-sm text-white/60"><input type="checkbox" className="h-4 w-4 accent-orange-500" checked={wrapNative} onChange={(e) => setWrapNative(e.target.checked)} /> Pay with native NEAR (wrapped to wNEAR in the same transaction)</label>
+            )}
+            {nearContract && nearAccount && !txHash && <p className="text-xs leading-relaxed text-white/40">Your wallet shows one transaction to the token contract. If the deposit address is not registered on the token yet, it includes a small NEAR storage deposit, as the token standard requires. The transfer attaches 1 yoctoNEAR.</p>}
+            {!evmChainId && !nearContract && <p className="text-xs text-white/45">Send from any wallet on {chainName(fromTok.blockchain)}. Scan the QR or copy the address.</p>}
+            {txHash && <Row k="Your deposit tx" v={(() => { const u = txUrl(fromTok.blockchain, txHash); const t = `${txHash.slice(0, 10)}...${txHash.slice(-6)}`; return u ? <a className="text-orange-400 underline" href={u} target="_blank" rel="noreferrer">{t}</a> : t; })()} />}
+            <div className="border-t border-white/5 pt-4">
+              <StatusTracker depositAddress={q.depositAddress} depositMemo={q.depositMemo} originChain={fromTok.blockchain} destChain={toTok.blockchain} depositTxHash={txHash ?? undefined} />
+            </div>
+            <div className="flex flex-wrap justify-between gap-2 text-sm">
+              {EXPLORERS[fromTok.blockchain] && <a className="text-orange-400 underline" href={EXPLORERS[fromTok.blockchain](q.depositAddress)} target="_blank" rel="noreferrer">View address on explorer</a>}
+              <Link href={`/activity?deposit=${encodeURIComponent(q.depositAddress)}`} className="text-white/50 hover:text-white">Open in Activity</Link>
+            </div>
+          </Card>
+        )}
+
         {q && toTok && fromTok && (
           <Card>
-            <div className="mb-2 flex items-center justify-between">
-              <h2 className="font-semibold">{live ? "Live quote" : "Preview"}</h2>
-              <span className={live ? "text-xs text-white/40" : "rounded-full border border-orange-500/40 px-2 py-0.5 text-xs text-orange-300"}>{live ? "Deposit address issued" : "Preview quote. No deposit address, nothing can be sent"}</span>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-semibold">{live ? "Live quote" : "Quote preview"}</h2>
+              <Badge tone={live ? "ok" : "brand"}>{live ? "Deposit address issued" : "Preview only, nothing can be sent"}</Badge>
+            </div>
+            <div className="mb-3 rounded-xl bg-black/30 p-4">
+              <div className="text-xs text-white/45">Expected to receive</div>
+              <div className="text-2xl font-semibold">{outShown} {toTok.symbol}</div>
+              <div className="text-xs text-white/45">on {chainName(toTok.blockchain)}{q.amountOutUsd ? `, ${usd(q.amountOutUsd)}` : ""}</div>
             </div>
             <div className="divide-y divide-white/5">
               <Row k="You send" v={`${q.amountInFormatted ?? fromBaseUnits(q.amountIn, fromTok.decimals)} ${fromTok.symbol} on ${chainName(fromTok.blockchain)}`} />
-              <Row k="Expected to receive" v={`${q.amountOutFormatted ?? fromBaseUnits(q.amountOut, toTok.decimals)} ${toTok.symbol} on ${chainName(toTok.blockchain)}`} />
               <Row k="Minimum received" v={q.minAmountOut ? `${fromBaseUnits(q.minAmountOut, toTok.decimals)} ${toTok.symbol}` : "Not provided"} />
               <Row k="Value in / out" v={`${usd(q.amountInUsd)} / ${usd(q.amountOutUsd)}`} />
               <Row k="Estimated cost" v={q.amountInUsd && q.amountOutUsd ? `$${Math.max(0, Number(q.amountInUsd) - Number(q.amountOutUsd)).toFixed(2)}` : "Not provided"} />
               {q.withdrawFee && <Row k="Withdraw fee (included)" v={`${fromBaseUnits(q.withdrawFee, toTok.decimals)} ${toTok.symbol}`} />}
               <Row k="Estimated time" v={typeof q.timeEstimate === "number" ? `${q.timeEstimate}s` : "Not provided"} />
               <Row k="Recipient" v={recipient.trim() || "Not entered (preview only)"} />
-              <Row k="Quote valid until" v={q.deadline ? new Date(q.deadline).toLocaleString() : "Set when you confirm"} />
+              {!live && <Row k="Quote valid until" v={q.deadline ? localTime(q.deadline) : "Set when you confirm"} />}
             </div>
           </Card>
         )}
+
         {guard && (
           <Card>
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-semibold">Swap Guard</h2>
-              {guard.blocked ? <span className="text-xs text-red-300">Blocked by a failed check</span> : <span className="text-xs text-emerald-300">No required check failed</span>}
+              {guard.blocked ? <Badge tone="bad">Blocked by a failed check</Badge> : <Badge tone="ok">No required check failed</Badge>}
             </div>
             <GuardList checks={guard.checks} />
-            <p className="mt-3 text-xs text-white/40">Checks marked Bridgen only run in this app. They do not change what the protocol will do with your deposit.</p>
+            <p className="mt-3 text-xs text-white/40">Checks marked Bridgen only run in this app. They do not change what the protocol does with your deposit.</p>
           </Card>
         )}
+
         {!live && q && fromTok && toTok && (
-          <FundsTracker view={fundsView("PENDING_DEPOSIT", { originChain: chainName(fromTok.blockchain), destChain: chainName(toTok.blockchain) })} note="In your wallet. Preview only, nothing sent" />
-        )}
-        {live && q?.depositAddress && fromTok && toTok && (
-          <Card className="space-y-4 border-orange-500/30">
-            <h2 className="font-semibold">Send your deposit</h2>
-            <p className="text-sm text-white/60">Send exactly <b className="text-white">{q.amountInFormatted} {fromTok.symbol}</b> on {chainName(fromTok.blockchain)} to this one-time address before the quote expires.</p>
-            <div className="break-all rounded-xl border border-white/10 bg-black/40 p-3 font-mono text-sm">{q.depositAddress}</div>
-            {q.depositMemo && <Alert tone="warn">Memo required: <b>{q.depositMemo}</b></Alert>}
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={() => navigator.clipboard.writeText(q.depositAddress!)}>Copy address</Button>
-              {evmChainId && wallet && !txHash && <Button onClick={payWithWallet} disabled={busy}>{busy ? <><Spinner /> Waiting for wallet</> : "Send with wallet"}</Button>}
-              {nearContract && nearAccount && !txHash && <Button onClick={payWithNear} disabled={busy}>{busy ? <><Spinner /> Waiting for wallet</> : `Send from ${nearAccount.length > 20 ? "NEAR wallet" : nearAccount}`}</Button>}
-              {nearContract && !nearAccount && !txHash && <Button variant="outline" onClick={connectNearWallet}>Connect NEAR wallet to send</Button>}
-              {EXPLORERS[fromTok.blockchain] && <a className="self-center text-sm text-orange-400 underline" href={EXPLORERS[fromTok.blockchain](q.depositAddress)} target="_blank" rel="noreferrer">View address</a>}
-            </div>
-            {nearContract === WRAP_NEAR && nearAccount && !txHash && (
-              <label className="flex items-center gap-2 text-xs text-white/60"><input type="checkbox" checked={wrapNative} onChange={(e) => setWrapNative(e.target.checked)} /> Pay with native NEAR (wraps it to wNEAR in the same transaction)</label>
-            )}
-            {nearContract && nearAccount && !txHash && <p className="text-xs text-white/40">Your wallet will show one transaction to the token contract. If the deposit address is not registered on the token yet, it includes a small NEAR storage deposit, as the token standard requires. The transfer itself attaches 1 yoctoNEAR.</p>}
-            {txHash && <Row k="Your deposit tx" v={nearContract ? <a className="text-orange-400 underline" href={`https://nearblocks.io/txns/${txHash}`} target="_blank" rel="noreferrer">{txHash.slice(0, 10)}...{txHash.slice(-6)}</a> : txHash} />}
-            <StatusTracker depositAddress={q.depositAddress} depositMemo={q.depositMemo} originChain={fromTok.blockchain} destChain={toTok!.blockchain} depositTxHash={txHash ?? undefined} />
-            <Link href="/activity" className="block text-sm text-white/50 hover:text-white">See all activity</Link>
-          </Card>
+          <FundsTracker view={fundsView("PENDING_DEPOSIT", { originChain: chainName(fromTok.blockchain), destChain: chainName(toTok.blockchain) })} note="Preview only, nothing sent" />
         )}
       </div>
     </div>
