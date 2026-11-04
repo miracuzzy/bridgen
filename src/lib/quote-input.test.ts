@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildQuoteRequest, parseQuoteResponse } from "./quote-input";
+import { buildQuoteRequest, parseForm, parseQuoteResponse } from "./quote-input";
 import type { Token } from "./types";
 import { fromBaseUnits, toBaseUnits } from "./units";
 
@@ -74,5 +74,18 @@ describe("preview without recipient or refund", () => {
     if (!r.ok) expect(r.error).toMatch(/recipient/i);
     const r2 = buildQuoteRequest({ ...f, recipient: "alice.near" }, toks, false);
     expect(!r2.ok && r2.error).toMatch(/refund/i);
+  });
+});
+
+describe("parseForm", () => {
+  const ok = { originAsset: "a", destinationAsset: "b", amount: "1.5", recipient: "", refundTo: "", slippageBps: 100 };
+  it("accepts a well formed form", () => expect(parseForm(ok)).toEqual(ok));
+  it("rejects wrong types, long strings and bad amounts", () => {
+    expect(parseForm(null)).toBeNull();
+    expect(parseForm({ ...ok, amount: 1 })).toBeNull();
+    expect(parseForm({ ...ok, amount: "1e9" })).toBeNull();
+    expect(parseForm({ ...ok, amount: "-1" })).toBeNull();
+    expect(parseForm({ ...ok, recipient: "x".repeat(200) })).toBeNull();
+    expect(parseForm({ ...ok, slippageBps: "abc" })).toBeNull();
   });
 });

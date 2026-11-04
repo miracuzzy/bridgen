@@ -26,7 +26,15 @@ async function call(path: string, init: RequestInit = {}, timeoutMs = 15000) {
   }
 }
 
-export const getTokens = () => call("/v0/tokens");
+// Token list is public and changes slowly: keep a 5 minute in-memory copy per instance.
+let tokenCache: { at: number; value: Awaited<ReturnType<typeof call>> } | null = null;
+export const TOKEN_TTL_MS = 5 * 60 * 1000;
+export async function getTokens() {
+  if (tokenCache && Date.now() - tokenCache.at < TOKEN_TTL_MS) return tokenCache.value;
+  const r = await call("/v0/tokens", {}, 10000);
+  if (r.ok && Array.isArray(r.data)) tokenCache = { at: Date.now(), value: r };
+  return r;
+}
 export const postQuote = (body: QuoteRequestBody) => call("/v0/quote", { method: "POST", body: JSON.stringify(body) }, 25000);
 export const getStatus = (depositAddress: string, memo?: string) =>
   call(`/v0/status?depositAddress=${encodeURIComponent(depositAddress)}${memo ? `&depositMemo=${encodeURIComponent(memo)}` : ""}`);

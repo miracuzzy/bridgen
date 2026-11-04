@@ -108,3 +108,12 @@ Market makers fill the intent and settlement goes through the NEAR Intents verif
 - Activity history is stored in this browser only.
 - Address format checks catch typos, not wrong-but-valid addresses.
 - The minimum amount per route is set by 1Click and shown as an error when too low.
+
+## Security
+
+- **Secrets.** `ONECLICK_API_KEY` is read only in `src/lib/oneclick.ts` (`server-only`) and sent to 1Click as `Authorization: Bearer`. It is never sent to the browser. `.env*` (except `.env.example`) and `.vercel` are gitignored.
+- **API routes.** `/api/quote` caps bodies at 4 KB, requires JSON, checks field types and lengths, and rebuilds the upstream request from the live token list (asset ids, amount, slippage, per-chain address formats). `/api/status` only accepts deposit-address and memo formats. `/api/near-storage` only accepts NEAR account ids. Upstream fetches time out (1Click 10 to 25 s, NEAR RPC 8 s). Errors are short messages; upstream stacks, URLs and auth failures are not passed through.
+- **Caching.** The token list is cached in memory for 5 minutes per instance and served with `s-maxage=300, stale-while-revalidate=600`. Everything else is `no-store`.
+- **Rate limiting.** Per IP, per route, per minute: quote 20, status 120, tokens 60, near-storage 60. Counters live in memory, so on serverless each instance counts separately and resets on cold start. This is best effort, not a hard quota; use Vercel Firewall rules for a strict limit.
+- **Headers.** `next.config.ts` sets a CSP (`src/lib/csp.ts`), `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options: DENY` plus `frame-ancestors 'none'`, `Permissions-Policy` and HSTS. `script-src` keeps `'unsafe-inline'` because Next.js inline bootstrap scripts and NEAR Connect sandboxed wallet iframes (srcdoc, which inherit the page CSP) need it. `connect-src` lists NEAR RPCs, the NEAR Connect manifest and wallet backends, and WalletConnect/Reown. If a NEAR wallet adds a new backend host it must be added to `WALLET_HOSTS`.
+- **WalletConnect.** Add every domain that serves Bridgen to the project allowlist in the Reown dashboard.

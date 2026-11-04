@@ -85,3 +85,18 @@ export function parseQuoteResponse(data: unknown): { ok: true; value: import("./
   if (!d.quoteRequest || typeof d.quoteRequest !== "object") return { ok: false, error: "Quote response is missing the request echo" };
   return { ok: true, value: d as unknown as import("./types").QuoteResponse };
 }
+
+// Validates the untrusted form shape before it reaches buildQuoteRequest.
+export function parseForm(v: unknown): SwapForm | null {
+  if (!v || typeof v !== "object") return null;
+  const f = v as Record<string, unknown>;
+  const str = (k: string, max: number) => (typeof f[k] === "string" && (f[k] as string).length <= max ? (f[k] as string) : null);
+  const originAsset = str("originAsset", 200), destinationAsset = str("destinationAsset", 200);
+  const amount = str("amount", 40), recipient = str("recipient", 128), refundTo = str("refundTo", 128);
+  const slippageBps = Number(f.slippageBps);
+  if (originAsset === null || destinationAsset === null || amount === null || recipient === null || refundTo === null) return null;
+  if (!/^\d+(\.\d+)?$/.test(amount.trim())) return null;
+  if (!Number.isFinite(slippageBps)) return null;
+  return { originAsset, destinationAsset, amount: amount.trim(), recipient, refundTo, slippageBps };
+}
+
