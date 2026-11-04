@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { saveActivity, updateActivity } from "@/lib/activity";
 import { chainName, DEFAULT_FROM, DEFAULT_TO, EVM_CHAIN_IDS, EXPLORERS } from "@/lib/chains";
 import { connectEvm, sendDeposit } from "@/lib/evm";
+import { nearTokenContract, WRAP_NEAR } from "@/lib/near-deposit";
+import { connectNear, currentNearAccount, disconnectNear, sendNearDeposit } from "@/lib/near-wallet";
 import { evaluateGuard, type GuardResult, type GuardRules } from "@/lib/guard";
 import type { SwapForm } from "@/lib/quote-input";
 import type { QuoteResponse, Token } from "@/lib/types";
@@ -53,6 +55,10 @@ export function SwapApp() {
   const [quote, setQuote] = useState<QuoteResponse | null>(null);
   const [guard, setGuard] = useState<GuardResult | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
+  const [nearAccount, setNearAccount] = useState<string | null>(null);
+  const [wrapNative, setWrapNative] = useState(true);
+
+  useEffect(() => { currentNearAccount().then(setNearAccount); }, []);
 
   useEffect(() => {
     fetch("/api/tokens")
@@ -63,6 +69,28 @@ export function SwapApp() {
   const fromTok = tokens?.find((t) => t.assetId === from);
   const toTok = tokens?.find((t) => t.assetId === to);
   const evmChainId = fromTok ? EVM_CHAIN_IDS[fromTok.blockchain] : undefined;
+  const nearContract = fromTok?.blockchain === "near" ? nearTokenContract(fromTok.assetId) : null;
+
+  async function connectNearWallet() {
+    setErr(null);
+    try {
+      const a = await connectNear();
+      setNearAccount(a);
+      if (!refundTo.trim()) setRefundTo(a);
+    } catch (e) { setErr((e as Error).message || "Could not connect a NEAR wallet"); }
+  }
+
+  async function payWithNear() {
+    if (!quote?.quote.depositAddress || !nearContract || !nearAccount) return;
+    setBusy(true); setErr(null);
+    try {
+      const h = await sendNearDeposit({ contract: nearContract, depositAddress: quote.quote.depositAddress, amount: quote.quote.amountIn, sender: nearAccount, wrapNative: nearContract === WRAP_NEAR && wrapNative });
+      setTxHash(h);
+      updateActivity(quote.quote.depositAddress, { depositTxHash: h });
+    } catch (e) {
+      setErr((e as Error).message || "NEAR wallet send failed. Nothing was sent unless your wallet shows a transaction.");
+    } finally { setBusy(false); }
+  }
 
   const form: SwapForm = useMemo(
     () => ({ originAsset: from, destinationAsset: to, amount, recipient, refundTo, slippageBps: Math.round(Number(slippage) * 100) }),
@@ -158,6 +186,9 @@ export function SwapApp() {
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold">Swap</h1>
           {wallet ? <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-white/70">{wallet.slice(0, 6)}...{wallet.slice(-4)}</span>
+            : nearContract ? (nearAccount
+              ? <button className="rounded-full border border-white/10 px-3 py-1 text-xs text-white/70 hover:border-orange-500/60" onClick={() => { disconnectNear(); setNearAccount(null); }} title="Disconnect">{nearAccount.length > 24 ? `${nearAccount.slice(0, 8)}...${nearAccount.slice(-6)}` : nearAccount}</button>
+              : <Button variant="outline" className="px-3 py-1.5 text-xs" onClick={connectNearWallet}>Connect NEAR wallet</Button>)
             : evmChainId ? <Button variant="outline" className="px-3 py-1.5 text-xs" onClick={connect}>Connect wallet</Button>
             : <span className="text-xs text-white/40">Wallet send not supported for {chainName(fromChain)} yet</span>}
         </div>
@@ -250,9 +281,15 @@ export function SwapApp() {
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={() => navigator.clipboard.writeText(q.depositAddress!)}>Copy address</Button>
               {evmChainId && wallet && !txHash && <Button onClick={payWithWallet} disabled={busy}>{busy ? <><Spinner /> Waiting for wallet</> : "Send with wallet"}</Button>}
+              {nearContract && nearAccount && !txHash && <Button onClick={payWithNear} disabled={busy}>{busy ? <><Spinner /> Waiting for wallet</> : `Send from ${nearAccount.length > 20 ? "NEAR wallet" : nearAccount}`}</Button>}
+              {nearContract && !nearAccount && !txHash && <Button variant="outline" onClick={connectNearWallet}>Connect NEAR wallet to send</Button>}
               {EXPLORERS[fromTok.blockchain] && <a className="self-center text-sm text-orange-400 underline" href={EXPLORERS[fromTok.blockchain](q.depositAddress)} target="_blank" rel="noreferrer">View address</a>}
             </div>
-            {txHash && <Row k="Your deposit tx" v={txHash} />}
+            {nearContract === WRAP_NEAR && nearAccount && !txHash && (
+              <label className="flex items-center gap-2 text-xs text-white/60"><input type="checkbox" checked={wrapNative} onChange={(e) => setWrapNative(e.target.checked)} /> Pay with native NEAR (wraps it to wNEAR in the same transaction)</label>
+            )}
+            {nearContract && nearAccount && !txHash && <p className="text-xs text-white/40">Your wallet will show one transaction to the token contract. If the deposit address is not registered on the token yet, it includes a small NEAR storage deposit, as the token standard requires. The transfer itself attaches 1 yoctoNEAR.</p>}
+            {txHash && <Row k="Your deposit tx" v={nearContract ? <a className="text-orange-400 underline" href={`https://nearblocks.io/txns/${txHash}`} target="_blank" rel="noreferrer">{txHash.slice(0, 10)}...{txHash.slice(-6)}</a> : txHash} />}
             <StatusTracker depositAddress={q.depositAddress} depositMemo={q.depositMemo} originChain={fromTok.blockchain} destChain={toTok!.blockchain} depositTxHash={txHash ?? undefined} />
             <Link href="/activity" className="block text-sm text-white/50 hover:text-white">See all activity</Link>
           </Card>
