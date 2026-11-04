@@ -11,12 +11,22 @@ Bridgen gets real swap quotes from the NEAR Intents 1Click Swap API and runs the
 | Supported asset list from 1Click `/v0/tokens` | Working |
 | Preview quotes (`dry: true`) and live quotes with deposit address | Working, tested against the live API |
 | Preview without recipient/refund (stand-in addresses for dry quotes only, see `src/lib/address.ts`) | Working |
-| Funds location tracker driven by real 1Click statuses (`src/lib/funds.ts`) | Working, unit tested. Not yet seen on a real deposit |
+| Funds location tracker driven by real 1Click statuses (`src/lib/funds.ts`) | Working, seen through a real swap to SUCCESS |
 | Swap Guard rules + unit tests | Working |
 | Re-check on a fresh live quote before the deposit address is shown | Working |
-| Status tracking via `/v0/status` | Working (tested on PENDING_DEPOSIT) |
+| Status tracking via `/v0/status` | Working, tested from PENDING_DEPOSIT to SUCCESS on mainnet |
+| Activity lookup by deposit address (amounts, fees, refunds, explorer links) | Working, tested on the real swap below |
+| Send deposit from a NEAR wallet (NEAR Connect: HOT, Meteor and others) with NEP-145 storage handling | Built and unit tested, not yet tested with a real wallet |
 | Send deposit from an EVM browser wallet (EIP-1193) | Built, not yet tested with real funds |
-| End-to-end swap with real funds | Not yet done |
+| End-to-end swap with real funds | Done (manual send from wallet), see below |
+
+### Real mainnet swap
+
+1 USDC on Base to USDC on NEAR. Delivered 0.994658 USDC. Withdraw fee 0.00514 USDC (included in the output).
+
+- Deposit address: `0x16e1864E80B0B278CeCE6EC7F72EF214138AcB2A`
+- Base deposit tx: [0x55bafd2c...02e96f6](https://basescan.org/tx/0x55bafd2c87ef2e779abbd12330d4bb1e2f5e007de7ee54ff901e6a8ea02e96f6)
+- NEAR delivery tx: [CkV1QxfQ...7hvy2oJ5oSe](https://nearblocks.io/txns/CkV1QxfQC1YGLBDiNNZZn5QDaoctnv4qn7hvy2oJ5oSe)
 
 ## Try it
 
@@ -35,7 +45,8 @@ Do X, see Y:
 4. Click **Edit**, set **Min received** to `5`, click **Preview quote**. See "Minimum received: Failed" and **Get deposit address** blocked.
 5. Enter amount `0.01`. See the API error "Amount is too low for bridge".
 6. With funds: fill recipient (e.g. `name.near`) and a refund address on Base, click **Get deposit address**. Bridgen fetches a fresh live quote, runs Swap Guard again, and only then shows the one-time deposit address. The funds tracker then follows real 1Click statuses: In your wallet (PENDING_DEPOSIT), At the one-time deposit address (KNOWN_DEPOSIT_TX, or INCOMPLETE_DEPOSIT flagged), Being swapped via NEAR Intents (PROCESSING), Delivered to recipient (SUCCESS), or Refunded to your refund address (REFUNDED) / Swap failed (FAILED), with tx hashes and explorer links when 1Click returns them.
-7. Open `/activity`. See the confirmed swap with its deposit address, timestamps and live status.
+7. Open `/activity`, paste `0x16e1864E80B0B278CeCE6EC7F72EF214138AcB2A` and click **Look up**. See the real swap marked Complete: 1.0 USDC sent, 0.994658 USDC received, withdraw fee 0.00514 USDC, the time in your own time zone, and links to the Base deposit tx on basescan.org and the NEAR delivery tx on nearblocks.io. `/activity?deposit=<address>` opens the same view directly.
+8. On `/swap`, pick a NEAR token as the source (for example wNEAR or USDC on NEAR). See **Connect NEAR wallet**. After you get a deposit address, **Send from <account>** asks your wallet to sign one transaction on the token contract: `storage_deposit` for the deposit address if it is not registered yet, `near_deposit` to wrap native NEAR (wNEAR only, optional), then `ft_transfer` with 1 yoctoNEAR attached.
 
 ## Architecture
 
@@ -48,8 +59,12 @@ src/
     units.ts      decimal <-> base units with BigInt
     address.ts    recipient/refund format checks per chain
     evm.ts        EIP-1193 deposit send (native or ERC-20 transfer)
+    near-deposit.ts  builds the NEAR deposit tx (storage_deposit, near_deposit, ft_transfer)
+    near-wallet.ts   NEAR Connect wallet connection and send
+    swap-summary.ts  status response to amounts, fees, refunds and explorer links
+    explorer.ts   tx explorer links per chain (1Click explorerUrl can be empty)
     activity.ts   local history (browser localStorage), real API values only
-  app/api/        tokens, quote, status (server routes, the browser never calls 1Click directly)
+  app/api/        tokens, quote, status, near-storage (server routes, the browser never calls 1Click directly)
   app/            homepage, /swap, /activity
   components/     UI pieces (ui, swap-app, guard-list, status-tracker, token-select)
 ```
@@ -81,7 +96,8 @@ Market makers fill the intent and settlement goes through the NEAR Intents verif
 
 ## Known limitations
 
-- Wallet sending only for EVM chains with an injected wallet. Other chains show the deposit address to send manually.
+- Wallet sending for EVM chains (injected wallet) and NEAR tokens (NEAR Connect). Other chains show the deposit address to send manually.
+- Fees shown are the ones 1Click returns (`withdrawFee`, `refundFee`). Total cost is value in minus value out in USD.
 - Activity history is stored in this browser only.
 - Address format checks catch typos, not wrong-but-valid addresses.
 - The minimum amount per route is set by 1Click and shown as an error when too low.
