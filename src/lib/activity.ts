@@ -28,3 +28,6 @@ export function updateActivity(addr: string, patch: Partial<ActivityItem>) {
   const all = loadActivity().map((a) => (a.depositAddress === addr ? { ...a, ...patch } : a));
   localStorage.setItem(KEY, JSON.stringify(all));
 }
+export function removeActivity(addr: string) {
+  localStorage.setItem(KEY, JSON.stringify(loadActivity().filter((a) => a.depositAddress !== addr)));
+}

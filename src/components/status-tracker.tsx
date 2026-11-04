@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { updateActivity } from "@/lib/activity";
 import { chainName } from "@/lib/chains";
 import { fundsView, type FundsView } from "@/lib/funds";
+import { txUrl } from "@/lib/explorer";
+import { localTime } from "@/lib/time";
 import type { StatusResponse } from "@/lib/types";
 import { Badge, Row, Spinner } from "./ui";
 
@@ -81,7 +83,12 @@ export function StatusTracker({ depositAddress, depositMemo, originChain, destCh
     return () => { stop = true; clearTimeout(timer); };
   }, [depositAddress, depositMemo]);
 
-  const d = s?.swapDetails;
+  const raw = s?.swapDetails;
+  const d = raw && {
+    ...raw,
+    originChainTxHashes: raw.originChainTxHashes?.map((t) => ({ ...t, explorerUrl: txUrl(originChain, t.hash, t.explorerUrl || undefined) })),
+    destinationChainTxHashes: raw.destinationChainTxHashes?.map((t) => ({ ...t, explorerUrl: txUrl(destChain, t.hash, t.explorerUrl || undefined) })),
+  };
   const txs = [...(d?.originChainTxHashes ?? []).map((t) => ["Deposit tx", t] as const), ...(d?.destinationChainTxHashes ?? []).map((t) => ["Delivery tx", t] as const)];
   const view = fundsView(s?.status, { originChain: chainName(originChain), destChain: chainName(destChain), details: d, depositTxHash });
   return (
@@ -92,10 +99,11 @@ export function StatusTracker({ depositAddress, depositMemo, originChain, destCh
         <span className="flex items-center gap-2">{s && !FINAL.has(s.status) && <Spinner />}<StatusBadge status={s?.status} /></span>
       </div>
       {err && <p className="mt-2 text-xs text-amber-300">{err}. Retrying.</p>}
-      {s?.updatedAt && <Row k="Updated" v={new Date(s.updatedAt).toLocaleString()} />}
+      {s?.updatedAt && <Row k="Updated" v={localTime(s.updatedAt)} />}
       {d?.depositedAmountFormatted && <Row k="Deposited" v={d.depositedAmountFormatted} />}
       {d?.amountOutFormatted && <Row k="Delivered" v={`${d.amountOutFormatted}${d.amountOutUsd ? ` ($${Number(d.amountOutUsd).toFixed(2)})` : ""}`} />}
       {d?.refundedAmountFormatted && Number(d.refundedAmountFormatted) > 0 && <Row k="Refunded" v={`${d.refundedAmountFormatted}${d.refundReason ? ` (${d.refundReason})` : ""}`} />}
+      {(s?.status === "REFUNDED" || s?.status === "FAILED") && <p className="text-xs text-amber-300">{s.status === "REFUNDED" ? "This swap was refunded to your refund address." : "1Click reported this swap as failed."}{d?.refundReason ? ` Reason: ${d.refundReason}.` : ""} Full details are on the Activity page.</p>}
       {txs.map(([k, t]) => (
         <Row key={t.hash} k={k} v={t.explorerUrl ? <a className="text-orange-400 underline" href={t.explorerUrl} target="_blank" rel="noreferrer">{t.hash.slice(0, 10)}...{t.hash.slice(-6)}</a> : t.hash} />
       ))}
