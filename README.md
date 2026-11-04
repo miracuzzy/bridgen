@@ -16,17 +16,23 @@ Bridgen gets real swap quotes from the NEAR Intents 1Click Swap API and runs the
 | Re-check on a fresh live quote before the deposit address is shown | Working |
 | Status tracking via `/v0/status` | Working, tested from PENDING_DEPOSIT to SUCCESS on mainnet |
 | Activity lookup by deposit address (amounts, fees, refunds, explorer links) | Working, tested on the real swap below |
-| Send deposit from a NEAR wallet (NEAR Connect: HOT, Meteor and others) with NEP-145 storage handling | Built and unit tested, not yet tested with a real wallet |
+| Send deposit from a NEAR wallet (NEAR Connect: HOT, Meteor and others) with NEP-145 storage handling | Working, tested on mainnet with HOT (swap 2 below) |
 | Send deposit from an EVM browser wallet (EIP-1193) | Built, not yet tested with real funds |
-| End-to-end swap with real funds | Done (manual send from wallet), see below |
+| End-to-end swap with real funds | Done in both directions, see below |
 
-### Real mainnet swap
+### Real mainnet swaps
 
-1 USDC on Base to USDC on NEAR. Delivered 0.994658 USDC. Withdraw fee 0.00514 USDC (included in the output).
+**1. Base to NEAR (manual send).** 1 USDC on Base to USDC on NEAR. Delivered 0.994658 USDC. Withdraw fee 0.00514 USDC (included in the output).
 
 - Deposit address: `0x16e1864E80B0B278CeCE6EC7F72EF214138AcB2A`
 - Base deposit tx: [0x55bafd2c...02e96f6](https://basescan.org/tx/0x55bafd2c87ef2e779abbd12330d4bb1e2f5e007de7ee54ff901e6a8ea02e96f6)
 - NEAR delivery tx: [CkV1QxfQ...7hvy2oJ5oSe](https://nearblocks.io/txns/CkV1QxfQC1YGLBDiNNZZn5QDaoctnv4qn7hvy2oJ5oSe)
+
+**2. NEAR to Base (sent from a NEAR wallet through NEAR Connect, HOT).** 0.9 USDC on NEAR to USDC on Base. Delivered 0.897418 USDC. Withdraw fee 0.0024 USDC (included in the output).
+
+- Deposit address: `69942c52ae2d14e876b43935524c9079b64819475076d3d1bf99ff39a86f7457`
+- NEAR deposit tx: [27R2Qn9s...4rUt](https://nearblocks.io/txns/27R2Qn9sMnNtjiLML1EHbULQUwaUdtp7LMNFfj2U4rUt)
+- Base delivery tx: [0x2f54520e...558280889](https://basescan.org/tx/0x2f54520ee50c7ed65d7d6a40dc4943ecf13349551a89e4740d902ce558280889)
 
 ## Try it
 
