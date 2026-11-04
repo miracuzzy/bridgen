@@ -15,13 +15,13 @@ export function Logo() {
 export function Nav() {
   return (
     <header className="sticky top-0 z-30 border-b border-white/5 bg-[#0a0a0b]/80 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-5">
         <Logo />
         <nav className="flex items-center gap-1 text-sm sm:gap-4">
           <Link href="/#swap-guard" className="hidden px-2 text-white/60 hover:text-white sm:block">Swap Guard</Link>
           <Link href="/#how" className="hidden px-2 text-white/60 hover:text-white sm:block">How it works</Link>
-          <Link href="/activity" className="px-2 text-white/60 hover:text-white">Activity</Link>
-          <Link href="/swap" className="rounded-xl bg-orange-500 px-4 py-2 font-semibold text-black hover:bg-orange-400">Swap</Link>
+          <Link href="/activity" className="inline-flex min-h-11 items-center px-3 text-white/60 hover:text-white">Activity</Link>
+          <Link href="/swap" className="inline-flex min-h-10 items-center rounded-xl bg-orange-500 px-4 font-semibold text-black hover:bg-orange-400">Swap</Link>
         </nav>
       </div>
     </header>
@@ -30,8 +30,8 @@ export function Nav() {
 
 export function Footer() {
   return (
-    <footer className="mt-24 border-t border-white/5">
-      <div className="mx-auto grid max-w-6xl gap-8 px-5 py-10 text-sm sm:grid-cols-3">
+    <footer className="mt-16 border-t border-white/5 sm:mt-24">
+      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 text-sm sm:grid-cols-3 sm:px-5">
         <div className="space-y-2">
           <Logo />
           <p className="text-white/50">Cross-chain swaps, powered by NEAR Intents.</p>

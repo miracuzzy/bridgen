@@ -36,6 +36,7 @@ export function SwapCard({ depositAddress, depositMemo, tokens, createdAt, onRem
         if (FINAL.has(d.status)) return;
       } catch (e) {
         if (!stop) setErr((e as Error).message);
+        if (/not found/i.test((e as Error).message)) return;
       }
       if (!stop) timer = setTimeout(tick, 6000);
     };
@@ -43,7 +44,7 @@ export function SwapCard({ depositAddress, depositMemo, tokens, createdAt, onRem
     return () => { stop = true; clearTimeout(timer); };
   }, [depositAddress, depositMemo]);
 
-  if (!s) return <Card className="text-sm">{err ? <Alert>{err} for {short(depositAddress)}</Alert> : <span className="flex items-center gap-2 text-white/60"><Spinner /> Checking {short(depositAddress)}</span>}</Card>;
+  if (!s) return <Card className="space-y-3 text-sm">{err ? <Alert>{/not found/i.test(err) ? `No 1Click swap found for ${short(depositAddress)}. Check the address and try again.` : `${err} for ${short(depositAddress)}. Retrying.`}</Alert> : <><span className="flex items-center gap-2 text-white/60"><Spinner /> Checking {short(depositAddress)}</span><div className="h-4 w-2/3 animate-pulse rounded bg-white/[0.06]" /><div className="h-4 w-1/2 animate-pulse rounded bg-white/[0.06]" /></>}</Card>;
 
   const v = summarize(s, tokens);
   const note = outcomeNote(v);
@@ -76,7 +77,7 @@ export function SwapCard({ depositAddress, depositMemo, tokens, createdAt, onRem
         <Txs label={`Delivery tx${v.to ? ` (${chainName(v.to.chain)})` : ""}`} txs={v.destTxs} />
       </div>
       <FundsTracker view={view} />
-      <div className="flex justify-between text-xs">
+      <div className="flex flex-col gap-3 text-xs sm:flex-row sm:justify-between">
         <a className="text-white/50 underline hover:text-white" href="https://explorer.near-intents.org" target="_blank" rel="noreferrer">Search this address on NEAR Intents Explorer</a>
         {onRemove && <button className="text-white/40 hover:text-white" onClick={onRemove}>Remove from this browser</button>}
       </div>
