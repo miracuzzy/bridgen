@@ -1,4 +1,4 @@
-import { checkAddressFormat } from "./address";
+import { checkAddressFormat, previewStandIn } from "./address";
 import type { QuoteRequestBody, Token } from "./types";
 import { toBaseUnits } from "./units";
 
@@ -32,9 +32,27 @@ export function buildQuoteRequest(form: SwapForm, tokens: Token[], dry: boolean,
   if (BigInt(amount) <= 0n) return { ok: false, error: "Amount must be greater than zero" };
   if (!Number.isInteger(form.slippageBps) || form.slippageBps < 1 || form.slippageBps > MAX_SLIPPAGE_BPS)
     return { ok: false, error: `Slippage must be between 0.01% and ${MAX_SLIPPAGE_BPS / 100}%` };
-  if (checkAddressFormat(to.blockchain, form.recipient) === false)
+  const recipientIn = form.recipient.trim();
+  const refundIn = form.refundTo.trim();
+  // Preview quotes may leave recipient/refund empty. 1Click still needs format-valid values,
+  // so a dry request gets a stand-in address. Dry quotes never issue a deposit address, so nothing can be sent there.
+  let recipient = recipientIn;
+  let refundTo = refundIn;
+  if (!recipientIn) {
+    if (!dry) return { ok: false, error: "Enter a recipient before getting a deposit address" };
+    const p = previewStandIn(to.blockchain);
+    if (!p) return { ok: false, error: `Enter a recipient on ${to.blockchain} to preview this route` };
+    recipient = p;
+  }
+  if (!refundIn) {
+    if (!dry) return { ok: false, error: "Enter a refund address before getting a deposit address" };
+    const p = previewStandIn(from.blockchain);
+    if (!p) return { ok: false, error: `Enter a refund address on ${from.blockchain} to preview this route` };
+    refundTo = p;
+  }
+  if (recipientIn && checkAddressFormat(to.blockchain, recipientIn) === false)
     return { ok: false, error: `Recipient does not look like a valid ${to.blockchain} address` };
-  if (checkAddressFormat(from.blockchain, form.refundTo) === false)
+  if (refundIn && checkAddressFormat(from.blockchain, refundIn) === false)
     return { ok: false, error: `Refund address does not look like a valid ${from.blockchain} address` };
   return {
     ok: true,
@@ -46,9 +64,9 @@ export function buildQuoteRequest(form: SwapForm, tokens: Token[], dry: boolean,
       depositType: "ORIGIN_CHAIN",
       destinationAsset: to.assetId,
       amount,
-      refundTo: form.refundTo.trim(),
+      refundTo,
       refundType: "ORIGIN_CHAIN",
-      recipient: form.recipient.trim(),
+      recipient,
       recipientType: "DESTINATION_CHAIN",
       deadline: new Date(now + QUOTE_DEADLINE_MS).toISOString(),
     },

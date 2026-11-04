@@ -10,6 +10,8 @@ Bridgen gets real swap quotes from the NEAR Intents 1Click Swap API and runs the
 | --- | --- |
 | Supported asset list from 1Click `/v0/tokens` | Working |
 | Preview quotes (`dry: true`) and live quotes with deposit address | Working, tested against the live API |
+| Preview without recipient/refund (stand-in addresses for dry quotes only, see `src/lib/address.ts`) | Working |
+| Funds location tracker driven by real 1Click statuses (`src/lib/funds.ts`) | Working, unit tested. Not yet seen on a real deposit |
 | Swap Guard rules + unit tests | Working |
 | Re-check on a fresh live quote before the deposit address is shown | Working |
 | Status tracking via `/v0/status` | Working (tested on PENDING_DEPOSIT) |
@@ -29,10 +31,10 @@ Do X, see Y:
 
 1. Open `/`. See the homepage with "Start swapping" and the Swap Guard section.
 2. Open `/swap`. See chains and assets loaded live from the 1Click API (Base USDC to NEAR USDC is preselected).
-3. Enter amount `1`, recipient `alice.near`, refund `0x2527D02599Ba641c19FEa793cD0F167589a0f10D`, click **Get quote and check**. See a real quote (expected out, minimum out, USD values, fee, time) and the Swap Guard list. Quote validity shows "Unable to verify" because preview quotes carry no deadline.
-4. Set **Min received** to `5` and get a quote again. See "Minimum received: Failed" and the **Confirm swap** button disabled.
+3. Enter amount `1` and leave recipient and refund empty. Click **Preview quote**. No wallet or funds needed. See a real 1Click quote labelled "Preview quote. No deposit address, nothing can be sent" (expected out, minimum out, USD values, fee, time), the full Swap Guard list, and the **Where your funds are** tracker showing "In your wallet. Preview only, nothing sent". Recipient shows "Unable to verify" because none was entered, and **Get deposit address** stays disabled until recipient and refund are filled in.
+4. Click **Edit**, set **Min received** to `5`, click **Preview quote**. See "Minimum received: Failed" and **Get deposit address** blocked.
 5. Enter amount `0.01`. See the API error "Amount is too low for bridge".
-6. With valid conditions, click **Confirm swap**. Bridgen requests a live quote, re-runs Swap Guard and only then shows the one-time deposit address with live status (`Waiting for deposit`). Nothing is sent unless you send it.
+6. With funds: fill recipient (e.g. `name.near`) and a refund address on Base, click **Get deposit address**. Bridgen fetches a fresh live quote, runs Swap Guard again, and only then shows the one-time deposit address. The funds tracker then follows real 1Click statuses: In your wallet (PENDING_DEPOSIT), At the one-time deposit address (KNOWN_DEPOSIT_TX, or INCOMPLETE_DEPOSIT flagged), Being swapped via NEAR Intents (PROCESSING), Delivered to recipient (SUCCESS), or Refunded to your refund address (REFUNDED) / Swap failed (FAILED), with tx hashes and explorer links when 1Click returns them.
 7. Open `/activity`. See the confirmed swap with its deposit address, timestamps and live status.
 
 ## Architecture

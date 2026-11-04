@@ -9,7 +9,8 @@ import type { SwapForm } from "@/lib/quote-input";
 import type { QuoteResponse, Token } from "@/lib/types";
 import { fromBaseUnits, toBaseUnits } from "@/lib/units";
 import { GuardList } from "./guard-list";
-import { StatusTracker } from "./status-tracker";
+import { FundsTracker, StatusTracker } from "./status-tracker";
+import { fundsView } from "@/lib/funds";
 import { TokenSelect } from "./token-select";
 import { Alert, Button, Card, inputCls, Label, Row, Spinner } from "./ui";
 
@@ -117,7 +118,7 @@ export function SwapApp() {
         amountIn: q.quote.amountInFormatted ?? fromBaseUnits(q.quote.amountIn, fromTok.decimals),
         expectedOut: q.quote.amountOutFormatted ?? fromBaseUnits(q.quote.amountOut, toTok.decimals),
         minOut: q.quote.minAmountOut ? fromBaseUnits(q.quote.minAmountOut, toTok.decimals) : undefined,
-        recipient, originChain: fromTok.blockchain, deadline: q.quote.deadline,
+        recipient, originChain: fromTok.blockchain, destChain: toTok.blockchain, deadline: q.quote.deadline,
       });
       setPhase("live");
     } catch (e) { setErr((e as Error).message); }
@@ -148,6 +149,7 @@ export function SwapApp() {
 
   const q = quote?.quote;
   const live = phase === "live";
+  const canGoLive = !!recipient.trim() && !!refundTo.trim();
   const locked = phase !== "edit";
 
   return (
@@ -168,11 +170,11 @@ export function SwapApp() {
           </div>
           <TokenSelect label="You receive" tokens={tokens} chain={toChain} asset={to} onChain={(c) => pickChain("to", c)} onAsset={(a) => { setTo(a); reset(); }} />
           <div>
-            <Label>Recipient on {chainName(toChain)}</Label>
+            <Label>Recipient on {chainName(toChain)} <span className="text-white/40">(optional for a preview)</span></Label>
             <input className={inputCls} placeholder={toChain === "near" ? "name.near" : "Address"} value={recipient} onChange={(e) => setRecipient(e.target.value)} />
           </div>
           <div>
-            <Label>Refund address on {chainName(fromChain)}</Label>
+            <Label>Refund address on {chainName(fromChain)} <span className="text-white/40">(optional for a preview)</span></Label>
             <input className={inputCls} placeholder="Where funds go back if the swap cannot complete" value={refundTo} onChange={(e) => setRefundTo(e.target.value)} />
           </div>
           <div className="rounded-xl border border-orange-500/20 bg-orange-500/[0.04] p-4">
@@ -187,11 +189,19 @@ export function SwapApp() {
           </div>
         </fieldset>
         {err && <Alert>{err}</Alert>}
-        {phase === "edit" && <Button className="w-full" onClick={preview} disabled={busy || !amount}>{busy ? <><Spinner /> Getting quote</> : "Get quote and check"}</Button>}
+        {phase === "edit" && (
+          <div className="grid grid-cols-2 gap-3">
+            <Button variant="outline" onClick={preview} disabled={busy || !amount}>{busy ? <><Spinner /> Getting quote</> : "Preview quote"}</Button>
+            <Button onClick={confirm} disabled={busy || !amount || !canGoLive}>Get deposit address</Button>
+          </div>
+        )}
+        {phase !== "live" && (
+          <p className="text-xs text-white/40">Preview quote needs no wallet or funds. It returns a real quote and full Swap Guard check, with no deposit address. Get deposit address needs a recipient and refund address.</p>
+        )}
         {phase === "review" && (
           <div className="grid grid-cols-2 gap-3">
             <Button variant="outline" onClick={reset} disabled={busy}>Edit</Button>
-            <Button onClick={confirm} disabled={busy || !!guard?.blocked}>{busy ? <><Spinner /> Re-checking</> : "Confirm swap"}</Button>
+            <Button onClick={confirm} disabled={busy || !!guard?.blocked || !canGoLive}>{busy ? <><Spinner /> Re-checking</> : "Get deposit address"}</Button>
           </div>
         )}
         {live && <Button variant="outline" className="w-full" onClick={reset}>New swap</Button>}
@@ -202,8 +212,8 @@ export function SwapApp() {
         {q && toTok && fromTok && (
           <Card>
             <div className="mb-2 flex items-center justify-between">
-              <h2 className="font-semibold">{live ? "Live quote" : "Review"}</h2>
-              <span className="text-xs text-white/40">{live ? "Deposit address issued" : "Preview quote, no address yet"}</span>
+              <h2 className="font-semibold">{live ? "Live quote" : "Preview"}</h2>
+              <span className={live ? "text-xs text-white/40" : "rounded-full border border-orange-500/40 px-2 py-0.5 text-xs text-orange-300"}>{live ? "Deposit address issued" : "Preview quote. No deposit address, nothing can be sent"}</span>
             </div>
             <div className="divide-y divide-white/5">
               <Row k="You send" v={`${q.amountInFormatted ?? fromBaseUnits(q.amountIn, fromTok.decimals)} ${fromTok.symbol} on ${chainName(fromTok.blockchain)}`} />
@@ -213,7 +223,7 @@ export function SwapApp() {
               <Row k="Estimated cost" v={q.amountInUsd && q.amountOutUsd ? `$${Math.max(0, Number(q.amountInUsd) - Number(q.amountOutUsd)).toFixed(2)}` : "Not provided"} />
               {q.withdrawFee && <Row k="Withdraw fee (included)" v={`${fromBaseUnits(q.withdrawFee, toTok.decimals)} ${toTok.symbol}`} />}
               <Row k="Estimated time" v={typeof q.timeEstimate === "number" ? `${q.timeEstimate}s` : "Not provided"} />
-              <Row k="Recipient" v={recipient} />
+              <Row k="Recipient" v={recipient.trim() || "Not entered (preview only)"} />
               <Row k="Quote valid until" v={q.deadline ? new Date(q.deadline).toLocaleString() : "Set when you confirm"} />
             </div>
           </Card>
@@ -228,7 +238,10 @@ export function SwapApp() {
             <p className="mt-3 text-xs text-white/40">Checks marked Bridgen only run in this app. They do not change what the protocol will do with your deposit.</p>
           </Card>
         )}
-        {live && q?.depositAddress && fromTok && (
+        {!live && q && fromTok && toTok && (
+          <FundsTracker view={fundsView("PENDING_DEPOSIT", { originChain: chainName(fromTok.blockchain), destChain: chainName(toTok.blockchain) })} note="In your wallet. Preview only, nothing sent" />
+        )}
+        {live && q?.depositAddress && fromTok && toTok && (
           <Card className="space-y-4 border-orange-500/30">
             <h2 className="font-semibold">Send your deposit</h2>
             <p className="text-sm text-white/60">Send exactly <b className="text-white">{q.amountInFormatted} {fromTok.symbol}</b> on {chainName(fromTok.blockchain)} to this one-time address before the quote expires.</p>
@@ -240,7 +253,7 @@ export function SwapApp() {
               {EXPLORERS[fromTok.blockchain] && <a className="self-center text-sm text-orange-400 underline" href={EXPLORERS[fromTok.blockchain](q.depositAddress)} target="_blank" rel="noreferrer">View address</a>}
             </div>
             {txHash && <Row k="Your deposit tx" v={txHash} />}
-            <StatusTracker depositAddress={q.depositAddress} depositMemo={q.depositMemo} />
+            <StatusTracker depositAddress={q.depositAddress} depositMemo={q.depositMemo} originChain={fromTok.blockchain} destChain={toTok!.blockchain} depositTxHash={txHash ?? undefined} />
             <Link href="/activity" className="block text-sm text-white/50 hover:text-white">See all activity</Link>
           </Card>
         )}

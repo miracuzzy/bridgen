@@ -62,3 +62,10 @@ describe("Swap Guard", () => {
     expect(r.blocked).toBe(false);
   });
 });
+
+describe("Swap Guard in preview", () => {
+  it("marks a blank recipient as unable to verify, not passed", () => {
+    const r = evaluateGuard(quote({}, { recipient: "0".repeat(64) }), { ...rules, expectedRecipient: "" }, dest, now);
+    expect(get(r, "recipient").status).toBe("unverified");
+  });
+});

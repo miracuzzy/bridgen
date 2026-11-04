@@ -16,3 +16,11 @@ export function checkAddressFormat(chain: string, address: string): boolean | nu
   if (chain === "tron") return /^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(a);
   return null;
 }
+
+// Format-valid stand-in addresses used only for dry (preview) quotes when the user left a field empty.
+// Verified to be accepted by 1Click for dry quotes. Never used for live quotes.
+export function previewStandIn(chain: string): string | null {
+  if (EVM.has(chain)) return "0x0000000000000000000000000000000000000001";
+  if (chain === "near") return "0".repeat(64);
+  return null;
+}

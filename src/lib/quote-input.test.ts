@@ -56,3 +56,23 @@ describe("parseQuoteResponse", () => {
     expect(parseQuoteResponse({ quote: { amountIn: "1.2", amountOut: "2" }, quoteRequest: {} }).ok).toBe(false);
   });
 });
+
+describe("preview without recipient or refund", () => {
+  const toks = [
+    { assetId: "a:base-usdc", decimals: 6, blockchain: "base", symbol: "USDC" },
+    { assetId: "a:near-usdc", decimals: 6, blockchain: "near", symbol: "USDC" },
+  ];
+  const f = { originAsset: "a:base-usdc", destinationAsset: "a:near-usdc", amount: "1", recipient: "", refundTo: "", slippageBps: 100 };
+  it("dry quotes use stand-in addresses", () => {
+    const r = buildQuoteRequest(f, toks, true);
+    expect(r.ok).toBe(true);
+    if (r.ok) { expect(r.body.recipient).toBe("0".repeat(64)); expect(r.body.refundTo).toMatch(/^0x0{39}1$/); }
+  });
+  it("live quotes require both fields", () => {
+    const r = buildQuoteRequest(f, toks, false);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toMatch(/recipient/i);
+    const r2 = buildQuoteRequest({ ...f, recipient: "alice.near" }, toks, false);
+    expect(!r2.ok && r2.error).toMatch(/refund/i);
+  });
+});

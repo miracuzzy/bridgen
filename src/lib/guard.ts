@@ -49,7 +49,8 @@ export function evaluateGuard(q: QuoteResponse, rules: GuardRules, dest: Token, 
   // 2. Recipient matches what the user typed, and looks valid for the chain.
   const fmt = checkAddressFormat(dest.blockchain, rules.expectedRecipient);
   let recipient: Pick<GuardCheck, "status" | "detail">;
-  if (req.recipient === undefined) recipient = { status: "unverified", detail: "Quote did not echo the recipient" };
+  if (!rules.expectedRecipient.trim()) recipient = { status: "unverified", detail: "Preview without a recipient. You must enter one before a deposit address is issued" };
+  else if (req.recipient === undefined) recipient = { status: "unverified", detail: "Quote did not echo the recipient" };
   else if (req.recipient !== rules.expectedRecipient.trim()) recipient = { status: "failed", detail: "Quote recipient differs from the one you entered" };
   else if (fmt === false) recipient = { status: "failed", detail: `Not a valid ${dest.blockchain} address format` };
   else if (fmt === null) recipient = { status: "unverified", detail: `Matches your input. Bridgen has no format rule for ${dest.blockchain}` };
