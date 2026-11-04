@@ -11,12 +11,12 @@ export function TokenSelect({ label, tokens, chain, asset, onChain, onAsset }: {
   return (
     <div>
       <Label>{label}</Label>
-      <div className="grid grid-cols-2 gap-2">
-        <select aria-label={`${label} chain`} className={inputCls} value={chain} onChange={(e) => onChain(e.target.value)}>
-          {chains.map((c) => <option key={c} value={c}>{chainName(c)}</option>)}
-        </select>
+      <div className="grid grid-cols-2 gap-2 [&>select]:min-w-0">
         <select aria-label={`${label} asset`} className={inputCls} value={asset} onChange={(e) => onAsset(e.target.value)}>
           {assets.map((t) => <option key={t.assetId} value={t.assetId}>{t.symbol}</option>)}
+        </select>
+        <select aria-label={`${label} chain`} className={inputCls} value={chain} onChange={(e) => onChain(e.target.value)}>
+          {chains.map((c) => <option key={c} value={c}>{chainName(c)}</option>)}
         </select>
       </div>
     </div>
