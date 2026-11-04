@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { updateActivity } from "@/lib/activity";
+import { chainName } from "@/lib/chains";
+import { fundsView, type FundsView } from "@/lib/funds";
 import type { StatusResponse } from "@/lib/types";
 import { Badge, Row, Spinner } from "./ui";
 
@@ -18,7 +20,42 @@ export function StatusBadge({ status }: { status?: string }) {
   return <Badge tone={TONE[status] ?? "muted"}>{LABEL[status] ?? status}</Badge>;
 }
 
-export function StatusTracker({ depositAddress, depositMemo }: { depositAddress: string; depositMemo?: string }) {
+const DOT: Record<string, string> = {
+  done: "bg-emerald-400 border-emerald-400", current: "bg-orange-500 border-orange-400 animate-pulse", upcoming: "bg-transparent border-white/25",
+  failed: "bg-red-500 border-red-400", skipped: "bg-transparent border-white/15",
+};
+
+export function FundsTracker({ view, note }: { view: FundsView; note?: string }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-black/30 p-4">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <span className="text-sm font-semibold">Where your funds are</span>
+        <span className="text-right text-xs text-orange-300">{note ?? view.location}</span>
+      </div>
+      <ol className="space-y-3">
+        {view.steps.map((st, i) => (
+          <li key={st.id} className="flex gap-3">
+            <div className="flex flex-col items-center">
+              <span className={`mt-1 h-3 w-3 rounded-full border-2 ${DOT[st.state]}`} />
+              {i < view.steps.length - 1 && <span className="mt-1 w-px flex-1 bg-white/10" />}
+            </div>
+            <div className={`pb-1 ${st.state === "upcoming" || st.state === "skipped" ? "opacity-50" : ""}`}>
+              <div className="text-sm font-medium">{st.label}{st.state === "skipped" && <span className="ml-2 text-xs text-white/40">skipped</span>}</div>
+              <div className="text-xs text-white/50">{st.detail}</div>
+              {st.txs.map((t) => (
+                <div key={t.hash} className="text-xs">
+                  {t.explorerUrl ? <a className="text-orange-400 underline" href={t.explorerUrl} target="_blank" rel="noreferrer">{t.hash.slice(0, 10)}...{t.hash.slice(-6)}</a> : <span className="font-mono text-white/60">{t.hash.slice(0, 10)}...{t.hash.slice(-6)}</span>}
+                </div>
+              ))}
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+export function StatusTracker({ depositAddress, depositMemo, originChain, destChain, depositTxHash }: { depositAddress: string; depositMemo?: string; originChain: string; destChain: string; depositTxHash?: string }) {
   const [s, setS] = useState<StatusResponse | null>(null);
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
@@ -46,8 +83,10 @@ export function StatusTracker({ depositAddress, depositMemo }: { depositAddress:
 
   const d = s?.swapDetails;
   const txs = [...(d?.originChainTxHashes ?? []).map((t) => ["Deposit tx", t] as const), ...(d?.destinationChainTxHashes ?? []).map((t) => ["Delivery tx", t] as const)];
+  const view = fundsView(s?.status, { originChain: chainName(originChain), destChain: chainName(destChain), details: d, depositTxHash });
   return (
-    <div>
+    <div className="space-y-3">
+      <FundsTracker view={view} note={s ? undefined : "Checking status"} />
       <div className="flex items-center justify-between">
         <span className="text-sm text-white/50">Status</span>
         <span className="flex items-center gap-2">{s && !FINAL.has(s.status) && <Spinner />}<StatusBadge status={s?.status} /></span>

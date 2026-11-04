@@ -23,7 +23,7 @@ export default function Activity() {
           <Row k="Recipient" v={a.recipient} />
           <Row k="Deposit address" v={EXPLORERS[a.originChain] ? <a className="text-orange-400 underline" href={EXPLORERS[a.originChain](a.depositAddress)} target="_blank" rel="noreferrer">{a.depositAddress}</a> : a.depositAddress} />
           {a.depositTxHash && <Row k="Deposit tx" v={a.depositTxHash} />}
-          <div className="mt-2 border-t border-white/5 pt-2"><StatusTracker depositAddress={a.depositAddress} depositMemo={a.depositMemo} /></div>
+          <div className="mt-2 border-t border-white/5 pt-2"><StatusTracker depositAddress={a.depositAddress} depositMemo={a.depositMemo} originChain={a.originChain} destChain={a.destChain ?? a.toLabel.split(" on ").pop() ?? ""} depositTxHash={a.depositTxHash} /></div>
         </Card>
       ))}
     </div>

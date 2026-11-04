@@ -10,6 +10,7 @@ export type ActivityItem = {
   minOut?: string;
   recipient: string;
   originChain: string;
+  destChain?: string;
   deadline?: string;
   depositTxHash?: string;
   lastStatus?: string;
