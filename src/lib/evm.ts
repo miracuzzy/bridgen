@@ -36,7 +36,7 @@ async function walletConnectProvider(): Promise<Eip1193> {
     projectId: WC_PROJECT_ID,
     showQrModal: true,
     optionalChains: [8453, ...ids.filter((i) => i !== 8453)],
-    metadata: { name: "Bridgen", description: "Cross-chain swaps, powered by NEAR Intents.", url: window.location.origin, icons: [`${window.location.origin}/icon.svg`] },
+    metadata: { name: "Bridgen", description: "Cross-chain swaps, powered by NEAR Intents.", url: window.location.origin, icons: [`${window.location.origin}/brand/icon-512.png`] },
   });
   if (!p.connected) await p.connect();
   return p as unknown as Eip1193;

@@ -1,4 +1,10 @@
 @import "tailwindcss";
+
+@theme {
+  --color-orange-300: #fdba74;
+  --color-orange-400: #fb923c;
+  --color-orange-500: #f97316;
+}
 :root { color-scheme: dark; }
 body { background: #0a0a0b; color: #fff; }
 ::selection { background: #f97316; color: #000; }

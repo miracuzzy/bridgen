@@ -1,13 +1,13 @@
 import Link from "next/link";
 
+// Flip to true at launch, once the repo is public.
+const SHOW_SOURCE_LINK = false;
+
 export function Logo() {
   return (
-    <Link href="/" className="flex items-center gap-2.5 font-semibold tracking-tight">
-      <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden>
-        <rect width="32" height="32" rx="9" fill="#f97316" />
-        <path d="M7 20c3-6 15-6 18 0M10 20v4M22 20v4M16 14v10" stroke="#0a0a0a" strokeWidth="2.4" strokeLinecap="round" fill="none" />
-      </svg>
-      <span className="text-lg">Bridgen</span>
+    <Link href="/" aria-label="Bridgen home" className="flex items-center">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/brand/bridgen-lockup-dark.svg" alt="Bridgen" width={141} height={24} className="h-6 w-auto" />
     </Link>
   );
 }
@@ -46,7 +46,9 @@ export function Footer() {
           <div className="text-white/40">Docs</div>
           <a className="block text-white/70 hover:text-white" href="https://docs.near-intents.org" target="_blank" rel="noreferrer">NEAR Intents docs</a>
           <a className="block text-white/70 hover:text-white" href="https://docs.near-intents.org/integration/distribution-channels/1click-api/about-1click-api" target="_blank" rel="noreferrer">1Click Swap API</a>
-          <a className="block text-white/70 hover:text-white" href="https://github.com/miracuzzy/bridgen" target="_blank" rel="noreferrer">Source code</a>
+          {SHOW_SOURCE_LINK && (
+            <a className="block text-white/70 hover:text-white" href="https://github.com/miracuzzy/bridgen" target="_blank" rel="noreferrer">Source code</a>
+          )}
         </div>
       </div>
       <div className="mx-auto max-w-6xl px-5 pb-8 text-xs text-white/30">Swaps carry risk. Bridgen checks quotes before you send but cannot guarantee outcomes.</div>
