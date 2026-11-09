@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 // Flip to true at launch, once the repo is public.
-const SHOW_SOURCE_LINK = false;
+const SHOW_SOURCE_LINK = true;
 
 export function Logo() {
   return (

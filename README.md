@@ -2,7 +2,7 @@
 
 **Move assets with confidence.**
 
-Live app: _coming soon_
+Live app: [usebridgen.vercel.app](https://usebridgen.vercel.app)
 Video walkthrough: _coming soon_
 X: [@usebridgen](https://x.com/usebridgen)
 

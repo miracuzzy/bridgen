@@ -8,6 +8,7 @@ const inter = Inter({ subsets: ["latin"] });
 const description = "Cross-chain swaps, powered by NEAR Intents. Set conditions with Swap Guard before you send.";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://usebridgen.vercel.app"),
   title: { default: "Bridgen. Move assets with confidence.", template: "%s | Bridgen" },
   description,
   applicationName: "Bridgen",
