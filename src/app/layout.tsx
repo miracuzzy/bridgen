@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   description,
   applicationName: "Bridgen",
   openGraph: { title: "Bridgen. Move assets with confidence.", description, siteName: "Bridgen", type: "website" },
-  twitter: { card: "summary_large_image", title: "Bridgen. Move assets with confidence.", description },
+  twitter: { card: "summary_large_image", site: "@usebridgen", creator: "@usebridgen", title: "Bridgen. Move assets with confidence.", description },
 };
 
 export const viewport: Viewport = { themeColor: "#0a0a0b", width: "device-width", initialScale: 1 };

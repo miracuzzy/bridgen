@@ -4,6 +4,7 @@
 
 Live app: _coming soon_
 Video walkthrough: _coming soon_
+X: [@usebridgen](https://x.com/usebridgen)
 
 ## What it is
 

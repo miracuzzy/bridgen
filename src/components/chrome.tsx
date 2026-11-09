@@ -49,6 +49,7 @@ export function Footer() {
           {SHOW_SOURCE_LINK && (
             <a className="block text-white/70 hover:text-white" href="https://github.com/miracuzzy/bridgen" target="_blank" rel="noreferrer">Source code</a>
           )}
+          <a className="block text-white/70 hover:text-white" href="https://x.com/usebridgen" target="_blank" rel="noreferrer">X (@usebridgen)</a>
         </div>
       </div>
       <div className="mx-auto max-w-6xl px-5 pb-8 text-xs text-white/30">Swaps carry risk. Bridgen checks quotes before you send but cannot guarantee outcomes.</div>
