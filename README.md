@@ -3,7 +3,9 @@
 **Move assets with confidence.**
 
 Live app: [usebridgen.vercel.app](https://usebridgen.vercel.app)
-Video walkthrough: _coming soon_
+
+Video walkthrough: [watch on X](https://x.com/miracuzzy/status/2120041149687619703)
+
 X: [@usebridgen](https://x.com/usebridgen)
 
 ## What it is
